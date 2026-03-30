@@ -1,0 +1,32 @@
+{
+  "name": "aisafe",
+  "version": "1.0.0",
+  "description": "AISafe - AI Governance Platform for India",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "migrate": "cd server && npm run migrate",
+    "seed": "cd server && npm run seed",
+    "test": "concurrently \"npm run test:server\" \"npm run test:client\"",
+    "test:server": "cd server && npm test",
+    "test:client": "cd client && npm test"
+  },
+  "keywords": [
+    "ai-governance",
+    "india",
+    "dpdp",
+    "responsible-ai",
+    "compliance",
+    "risk-management"
+  ],
+  "author": "AISafe Team",
+  "license": "BSL-1.1"
+}
