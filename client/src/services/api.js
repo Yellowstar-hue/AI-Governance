@@ -134,4 +134,100 @@ export const organizationsAPI = {
   stats: () => api.get("/organizations/stats"),
 };
 
+// Subscriptions
+export const subscriptionsAPI = {
+  plans: () => api.get("/subscriptions/plans"),
+  current: () => api.get("/subscriptions/current"),
+  subscribe: (data) => api.post("/subscriptions/subscribe", data),
+  cancel: () => api.post("/subscriptions/cancel"),
+  payments: () => api.get("/subscriptions/payments"),
+};
+
+// Notifications
+export const notificationsAPI = {
+  list: (params) => api.get("/notifications", { params }),
+  count: () => api.get("/notifications/count"),
+  markRead: (id) => api.put(`/notifications/${id}/read`),
+  markAllRead: () => api.put("/notifications/read-all"),
+};
+
+// AI Advisor
+export const aiAdvisorAPI = {
+  newSession: () => api.post("/ai-advisor/sessions"),
+  chat: (data) => api.post("/ai-advisor/chat", data),
+  history: (sessionId) => api.get(`/ai-advisor/sessions/${sessionId}`),
+};
+
+// Trust Center
+export const trustCenterAPI = {
+  get: () => api.get("/trust-center"),
+  update: (data) => api.put("/trust-center", data),
+  public: (slug) => api.get(`/trust-center/public/${slug}`),
+};
+
+// Assessments
+export const assessmentsAPI = {
+  templates: () => api.get("/assessments/templates"),
+  list: (params) => api.get("/assessments", { params }),
+  get: (id) => api.get(`/assessments/${id}`),
+  create: (data) => api.post("/assessments", data),
+  updateResponses: (id, responses) => api.put(`/assessments/${id}/responses`, { responses }),
+  complete: (id) => api.post(`/assessments/${id}/complete`),
+};
+
+// Search
+export const searchAPI = {
+  query: (q) => api.get("/search", { params: { q } }),
+};
+
+// Comments
+export const commentsAPI = {
+  list: (entityType, entityId) => api.get(`/comments/${entityType}/${entityId}`),
+  add: (entityType, entityId, content) => api.post(`/comments/${entityType}/${entityId}`, { content }),
+  delete: (id) => api.delete(`/comments/${id}`),
+};
+
+// Data Processing Activities
+export const dataProcessingAPI = {
+  list: () => api.get("/data-processing"),
+  get: (id) => api.get(`/data-processing/${id}`),
+  create: (data) => api.post("/data-processing", data),
+  update: (id, data) => api.put(`/data-processing/${id}`, data),
+};
+
+// Policy Templates
+export const policyTemplatesAPI = {
+  list: () => api.get("/policy-templates"),
+  get: (id) => api.get(`/policy-templates/${id}`),
+  use: (id) => api.post(`/policy-templates/${id}/use`),
+};
+
+// Webhooks
+export const webhooksAPI = {
+  list: () => api.get("/webhooks"),
+  create: (data) => api.post("/webhooks", data),
+  update: (id, data) => api.put(`/webhooks/${id}`, data),
+  delete: (id) => api.delete(`/webhooks/${id}`),
+  deliveries: (id) => api.get(`/webhooks/${id}/deliveries`),
+};
+
+// File Uploads
+export const uploadsAPI = {
+  upload: (entityType, entityId, files) => {
+    const formData = new FormData();
+    files.forEach((f) => formData.append("files", f));
+    return api.post(`/uploads/${entityType}/${entityId}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+  list: (entityType, entityId) => api.get(`/uploads/${entityType}/${entityId}`),
+  delete: (id) => api.delete(`/uploads/${id}`),
+};
+
+// Export Reports
+export const reportsExportAPI = {
+  complianceFull: () => api.get("/reports-export/compliance-full"),
+  dpia: (modelId) => api.get(`/reports-export/dpia/${modelId}`),
+};
+
 export default api;

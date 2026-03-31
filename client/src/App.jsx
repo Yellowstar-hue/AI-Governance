@@ -23,6 +23,13 @@ import Reports from "./pages/Reports";
 import AuditLogs from "./pages/AuditLogs";
 import Settings from "./pages/Settings";
 
+// SaaS Feature Pages
+import AIAdvisor from "./pages/AIAdvisor";
+import Subscriptions from "./pages/Subscriptions";
+import TrustCenter from "./pages/TrustCenter";
+import Assessments from "./pages/Assessments";
+import DataProcessing from "./pages/DataProcessing";
+
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) {
@@ -59,6 +66,11 @@ const App = () => {
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/audit" element={<AuditLogs />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/ai-advisor" element={<AIAdvisor />} />
+                <Route path="/subscriptions" element={<Subscriptions />} />
+                <Route path="/trust-center" element={<TrustCenter />} />
+                <Route path="/assessments" element={<Assessments />} />
+                <Route path="/data-processing" element={<DataProcessing />} />
               </Routes>
             </Layout>
           </ProtectedRoute>

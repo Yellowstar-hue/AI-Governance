@@ -8,7 +8,7 @@ require("dotenv").config();
 const { pool } = require("./config/database");
 const { connectRedis } = require("./config/redis");
 
-// Route imports
+// Core route imports
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
 const organizationRoutes = require("./routes/organizations");
@@ -23,6 +23,20 @@ const evidenceRoutes = require("./routes/evidence");
 const dashboardRoutes = require("./routes/dashboard");
 const frameworkRoutes = require("./routes/frameworks");
 const auditRoutes = require("./routes/audit");
+
+// SaaS feature route imports
+const subscriptionRoutes = require("./routes/subscriptions");
+const notificationRoutes = require("./routes/notifications");
+const webhookRoutes = require("./routes/webhooksRoute");
+const uploadRoutes = require("./routes/uploads");
+const aiAdvisorRoutes = require("./routes/aiAdvisor");
+const trustCenterRoutes = require("./routes/trustCenter");
+const assessmentRoutes = require("./routes/assessments");
+const searchRoutes = require("./routes/search");
+const commentRoutes = require("./routes/comments");
+const dataProcessingRoutes = require("./routes/dataProcessing");
+const policyTemplateRoutes = require("./routes/policyTemplates");
+const reportsExportRoutes = require("./routes/reportsExport");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -82,6 +96,23 @@ app.use("/api/evidence", evidenceRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/frameworks", frameworkRoutes);
 app.use("/api/audit", auditRoutes);
+
+// SaaS feature routes
+app.use("/api/subscriptions", subscriptionRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/webhooks", webhookRoutes);
+app.use("/api/uploads", uploadRoutes);
+app.use("/api/ai-advisor", aiAdvisorRoutes);
+app.use("/api/trust-center", trustCenterRoutes);
+app.use("/api/assessments", assessmentRoutes);
+app.use("/api/search", searchRoutes);
+app.use("/api/comments", commentRoutes);
+app.use("/api/data-processing", dataProcessingRoutes);
+app.use("/api/policy-templates", policyTemplateRoutes);
+app.use("/api/reports-export", reportsExportRoutes);
+
+// Static file serving for uploads
+app.use("/uploads", express.static("uploads"));
 
 // 404 handler
 app.use((req, res) => {
