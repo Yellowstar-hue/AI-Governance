@@ -132,17 +132,32 @@ Redeploy the server.
 |----------|-------------|---------|
 | `VITE_API_URL` | Server API URL | `https://server.up.railway.app/api` |
 
-## Estimated Railway Cost
+## Railway Free Tier
+
+Railway Trial plan gives **$5 free credit/month** — enough to run the full platform for testing and early-stage use.
+
+### Tips to Stay Within Free Tier
+- **Skip Redis**: The server gracefully falls back when Redis is unavailable. Remove the Redis service to save ~$1-2/month.
+- **Sleep on inactivity**: Railway auto-sleeps services after inactivity on free tier, which saves credits.
+- **Single region**: Keep all services in the same region to avoid cross-region transfer costs.
+
+### Estimated Usage on Free Tier
 
 | Service | Estimated/month |
 |---------|----------------|
-| PostgreSQL | ~$5 (Hobby) |
-| Redis | ~$5 (Hobby) |
-| Server | ~$5 (Hobby) |
-| Client | ~$5 (Hobby) |
-| **Total** | **~$20/month** |
+| PostgreSQL | ~$1-2 (low usage) |
+| Server (Node.js) | ~$1-2 (sleeps when idle) |
+| Client (static) | ~$0.50 |
+| Redis (optional) | ~$1 |
+| **Total** | **~$3-5/month (within free $5 credit)** |
 
-With Railway Pro plan you get $10 free credits, so effective cost is ~$10/month to start.
+### Scaling Up
+
+When you need more, upgrade to Railway Hobby ($5/month base) or Pro ($20/month) for:
+- No sleep on inactivity
+- Custom domains
+- Higher resource limits
+- Team collaboration
 
 ## Troubleshooting
 
