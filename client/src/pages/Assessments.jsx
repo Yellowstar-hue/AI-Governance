@@ -83,7 +83,7 @@ const Assessments = () => {
                 </Typography>
                 <Chip label={t.type.replace(/_/g, " ")} size="small" variant="outlined" />
                 <Chip
-                  label={`${JSON.parse(JSON.stringify(t.questions || [])).length} questions`}
+                  label={`${(t.questions || []).length} questions`}
                   size="small"
                   sx={{ ml: 1 }}
                 />

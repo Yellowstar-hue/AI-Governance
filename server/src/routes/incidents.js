@@ -110,7 +110,7 @@ router.put("/:id", async (req, res) => {
     for (const [key, value] of Object.entries(fields)) {
       if (["title", "description", "severity", "status", "category",
            "resolution", "root_cause", "corrective_actions",
-           "cert_in_reported", "cert_in_report_date"].includes(key)) {
+           "cert_in_reportable", "cert_in_reported", "cert_in_report_date"].includes(key)) {
         setClauses.push(`${key} = $${idx++}`);
         values.push(value);
       }

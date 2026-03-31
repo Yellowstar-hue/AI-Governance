@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
@@ -114,7 +115,20 @@ app.use("/api/reports-export", reportsExportRoutes);
 // Static file serving for uploads
 app.use("/uploads", express.static("uploads"));
 
-// 404 handler
+// Serve React frontend in production (single-service Railway deployment)
+const clientDistPath = path.join(__dirname, "../../client/dist");
+app.use(express.static(clientDistPath));
+
+// SPA fallback: any non-API route serves the React app
+app.get("*", (req, res, next) => {
+  // Don't serve frontend for API routes
+  if (req.path.startsWith("/api/") || req.path === "/health") {
+    return next();
+  }
+  res.sendFile(path.join(clientDistPath, "index.html"));
+});
+
+// 404 handler for API routes
 app.use((req, res) => {
   res.status(404).json({ error: "Route not found" });
 });

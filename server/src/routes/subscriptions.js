@@ -81,43 +81,56 @@ router.post("/subscribe", authorize("admin"), async (req, res) => {
     const periodEnd = new Date();
     periodEnd.setMonth(periodEnd.getMonth() + (billing_cycle === "yearly" ? 12 : 1));
 
-    // Deactivate existing subscription
-    await pool.query(
-      "UPDATE subscriptions SET status = 'cancelled' WHERE organization_id = $1 AND status IN ('active', 'trial')",
-      [req.orgId]
-    );
+    // Use transaction to ensure atomicity
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    const result = await pool.query(
-      `INSERT INTO subscriptions (organization_id, plan_id, status, current_period_start, current_period_end)
-       VALUES ($1, $2, 'active', NOW(), $3) RETURNING *`,
-      [req.orgId, p.id, periodEnd]
-    );
+      // Deactivate existing subscription
+      await client.query(
+        "UPDATE subscriptions SET status = 'cancelled' WHERE organization_id = $1 AND status IN ('active', 'trial')",
+        [req.orgId]
+      );
 
-    // Update org plan
-    await pool.query(
-      "UPDATE organizations SET plan = $1 WHERE id = $2",
-      [plan_slug, req.orgId]
-    );
+      const result = await client.query(
+        `INSERT INTO subscriptions (organization_id, plan_id, status, current_period_start, current_period_end)
+         VALUES ($1, $2, 'active', NOW(), $3) RETURNING *`,
+        [req.orgId, p.id, periodEnd]
+      );
 
-    // Create payment record
-    const gst = Math.round(amount * 0.18 * 100) / 100;
-    await pool.query(
-      `INSERT INTO payments (organization_id, subscription_id, amount, currency, status, gst_amount, invoice_number)
-       VALUES ($1, $2, $3, 'INR', 'completed', $4, $5)`,
-      [req.orgId, result.rows[0].id, amount + gst, gst, `INV-${Date.now()}`]
-    );
+      // Update org plan
+      await client.query(
+        "UPDATE organizations SET plan = $1 WHERE id = $2",
+        [plan_slug, req.orgId]
+      );
 
-    await logAuditEvent({
-      userId: req.user.id,
-      organizationId: req.orgId,
-      action: "SUBSCRIPTION_CREATED",
-      entityType: "subscription",
-      entityId: result.rows[0].id,
-      details: { plan: plan_slug, amount },
-      ipAddress: req.ip,
-    });
+      // Create payment record
+      const gst = Math.round(amount * 0.18 * 100) / 100;
+      await client.query(
+        `INSERT INTO payments (organization_id, subscription_id, amount, currency, status, gst_amount, invoice_number)
+         VALUES ($1, $2, $3, 'INR', 'completed', $4, $5)`,
+        [req.orgId, result.rows[0].id, amount + gst, gst, `INV-${Date.now()}`]
+      );
 
-    res.status(201).json({ subscription: result.rows[0] });
+      await client.query("COMMIT");
+
+      await logAuditEvent({
+        userId: req.user.id,
+        organizationId: req.orgId,
+        action: "SUBSCRIPTION_CREATED",
+        entityType: "subscription",
+        entityId: result.rows[0].id,
+        details: { plan: plan_slug, amount },
+        ipAddress: req.ip,
+      });
+
+      res.status(201).json({ subscription: result.rows[0] });
+    } catch (txErr) {
+      await client.query("ROLLBACK");
+      throw txErr;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     console.error("Subscription error:", err);
     res.status(500).json({ error: "Failed to create subscription" });

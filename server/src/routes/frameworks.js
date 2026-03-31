@@ -59,7 +59,7 @@ router.post("/:id/initialize", async (req, res) => {
     await pool.query(
       `INSERT INTO compliance_requirements
        (framework_id, organization_id, section_number, title, description, status)
-       SELECT id, $2, section_number, title, description, 'not_assessed'
+       SELECT framework_id, $2, section_number, title, description, 'not_assessed'
        FROM framework_requirements_template
        WHERE framework_id = $1`,
       [req.params.id, req.orgId]

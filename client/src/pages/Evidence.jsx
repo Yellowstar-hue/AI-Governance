@@ -83,7 +83,7 @@ const Evidence = () => {
                   <TableCell>{new Date(e.created_at).toLocaleDateString("en-IN")}</TableCell>
                   <TableCell>
                     {e.url && (
-                      <IconButton size="small" href={e.url} target="_blank"><LinkIcon /></IconButton>
+                      <IconButton size="small" component="a" href={e.url} target="_blank" rel="noopener noreferrer"><LinkIcon /></IconButton>
                     )}
                     <IconButton size="small" color="error" onClick={() => handleDelete(e.id)}><Delete /></IconButton>
                   </TableCell>

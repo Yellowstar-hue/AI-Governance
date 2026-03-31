@@ -26,7 +26,7 @@ const TrustCenter = () => {
       .then((res) => {
         if (res.data.trustCenter) {
           setConfig(res.data.trustCenter);
-          setForm({ ...form, ...res.data.trustCenter });
+          setForm((prev) => ({ ...prev, ...res.data.trustCenter }));
         }
       })
       .catch(console.error)
