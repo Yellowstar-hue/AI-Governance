@@ -66,7 +66,11 @@ router.post(
       res.status(201).json({ user, token, organizationId: orgId });
     } catch (err) {
       console.error("Registration error:", err);
-      res.status(500).json({ error: "Registration failed" });
+      res.status(500).json({
+        error: process.env.NODE_ENV === "production"
+          ? "Registration failed - database may not be ready yet. Please try again in 30 seconds."
+          : err.message,
+      });
     }
   }
 );

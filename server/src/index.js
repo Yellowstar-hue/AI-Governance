@@ -68,7 +68,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan("combined"));
 
 // Health check - always returns 200 so Railway doesn't kill the container
-// DB connectivity is checked separately via /health/db
 app.get("/health", (req, res) => {
   res.json({
     status: "healthy",
@@ -78,13 +77,30 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.get("/health/db", async (req, res) => {
+// Debug endpoint - check DB and tables
+app.get("/api/status", async (req, res) => {
+  const checks = { database: false, tables: false, tableList: [], env: {} };
+  checks.env = {
+    DATABASE_URL: process.env.DATABASE_URL ? "set" : "NOT SET",
+    JWT_SECRET: process.env.JWT_SECRET ? "set" : "NOT SET",
+    NODE_ENV: process.env.NODE_ENV || "not set",
+    PORT: process.env.PORT || "not set",
+  };
+
   try {
     await pool.query("SELECT 1");
-    res.json({ status: "healthy", database: "connected" });
+    checks.database = true;
+
+    const tables = await pool.query(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name"
+    );
+    checks.tableList = tables.rows.map((r) => r.table_name);
+    checks.tables = checks.tableList.includes("users");
   } catch (err) {
-    res.status(503).json({ status: "unhealthy", error: err.message });
+    checks.dbError = err.message;
   }
+
+  res.json(checks);
 });
 
 // API Routes
