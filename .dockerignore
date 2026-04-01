@@ -2,7 +2,11 @@ node_modules
 .git
 *.md
 docs
-scripts
-.env
-.env.*
+**/*.test.ts
+**/*.spec.ts
+**/test/
+**/tests/
+.env*
 !.env.example
+Servers/dist
+Clients/dist

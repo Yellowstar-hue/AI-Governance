@@ -1,42 +1,58 @@
-# Railway Free Tier - Single service: API + static frontend
-FROM node:18-alpine AS builder
+# AISafe Platform - Railway Deployment
+# Multi-stage build: compile TypeScript, build React, run production
+
+# ---- Stage 1: Build Backend ----
+FROM node:18-alpine AS backend-builder
+
+WORKDIR /app/Servers
+COPY Servers/package.json Servers/package-lock.json* ./
+RUN npm install
+
+COPY Servers/ ./
+RUN npm run build
+
+# ---- Stage 2: Build Frontend ----
+FROM node:18-alpine AS frontend-builder
 
 WORKDIR /app
+COPY version.json ./
+COPY shared/ ./shared/
 
-# Copy root package.json (workspaces config)
-COPY package.json ./
-COPY server/package.json ./server/
-COPY client/package.json ./client/
+WORKDIR /app/Clients
+COPY Clients/package.json Clients/package-lock.json* ./
+RUN npm install
 
-# Install all dependencies
-RUN cd server && npm install
-RUN cd client && npm install
+COPY Clients/ ./
+RUN npm run build-dev
 
-# Copy source code
-COPY server/ ./server/
-COPY client/ ./client/
-
-# Build the React frontend
-RUN cd client && npm run build
-
-# --- Production stage ---
+# ---- Stage 3: Production ----
 FROM node:18-alpine
 
-WORKDIR /app
+WORKDIR /app/Servers
 
-# Copy server with production deps only
-COPY server/package.json ./server/
-RUN cd server && npm install --production
+# Install production deps only
+COPY Servers/package.json Servers/package-lock.json* ./
+RUN npm install --production && npm cache clean --force
 
-# Copy server source
-COPY --from=builder /app/server/src/ ./server/src/
-COPY --from=builder /app/server/migrations/ ./server/migrations/
+# Copy compiled backend
+COPY --from=backend-builder /app/Servers/dist/ ./dist/
+COPY --from=backend-builder /app/Servers/database/ ./database/
+COPY --from=backend-builder /app/Servers/structures/ ./structures/
+COPY --from=backend-builder /app/Servers/scripts/ ./scripts/
+COPY --from=backend-builder /app/Servers/.sequelizerc ./.sequelizerc
+COPY --from=backend-builder /app/Servers/SQL_Commands.sql ./SQL_Commands.sql
 
-# Copy built React frontend
-COPY --from=builder /app/client/dist/ ./client/dist/
+# Copy built frontend
+COPY --from=frontend-builder /app/Clients/dist/ ./public/
 
-# Railway sets PORT env var
+# Copy shared
+COPY --from=frontend-builder /app/shared/ /app/shared/
+
+# Copy patches if they exist
+COPY Servers/patches/ ./patches/
+
 ENV NODE_ENV=production
 EXPOSE 3000
 
-CMD ["node", "server/src/start.js"]
+# Start: run migrations then start server
+CMD ["sh", "-c", "npx sequelize db:migrate --debug && node dist/index.js"]

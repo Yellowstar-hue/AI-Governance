@@ -2,6 +2,9 @@ node_modules/
 dist/
 build/
 .env
+.env.local
+.env.dev
+.env.prod
 *.log
 .DS_Store
 coverage/
@@ -9,3 +12,5 @@ coverage/
 .idea/
 uploads/
 *.pem
+Servers/dist/
+Clients/dist/
