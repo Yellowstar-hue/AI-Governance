@@ -67,16 +67,21 @@ app.use(express.urlencoded({ extended: true }));
 // Logging
 app.use(morgan("combined"));
 
-// Health check
-app.get("/health", async (req, res) => {
+// Health check - always returns 200 so Railway doesn't kill the container
+// DB connectivity is checked separately via /health/db
+app.get("/health", (req, res) => {
+  res.json({
+    status: "healthy",
+    service: "AISafe API",
+    version: "1.0.0",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get("/health/db", async (req, res) => {
   try {
     await pool.query("SELECT 1");
-    res.json({
-      status: "healthy",
-      service: "AISafe API",
-      version: "1.0.0",
-      timestamp: new Date().toISOString(),
-    });
+    res.json({ status: "healthy", database: "connected" });
   } catch (err) {
     res.status(503).json({ status: "unhealthy", error: err.message });
   }

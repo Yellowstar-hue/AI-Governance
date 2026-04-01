@@ -1,6 +1,6 @@
 /**
  * AISafe Railway Production Startup
- * Runs migrations and seeds automatically on deploy, then starts the server.
+ * Starts the server FIRST (so healthcheck passes), then runs migrations in background.
  */
 const { execSync } = require("child_process");
 const path = require("path");
@@ -16,10 +16,6 @@ const run = (cmd, label) => {
     console.log(`[startup] ${label} - done`);
   } catch (err) {
     console.error(`[startup] ${label} - failed:`, err.message);
-    // Don't exit on seed failures (may already be seeded)
-    if (label.includes("migration")) {
-      process.exit(1);
-    }
   }
 };
 
@@ -28,19 +24,20 @@ const start = async () => {
   console.log(`NODE_ENV: ${process.env.NODE_ENV || "production"}`);
   console.log(`DATABASE_URL: ${process.env.DATABASE_URL ? "set" : "not set"}`);
   console.log(`REDIS_URL: ${process.env.REDIS_URL ? "set" : "not set"}`);
+  console.log(`PORT: ${process.env.PORT || 3000}`);
 
-  // Run migrations
-  run("node migrations/run.js", "Running database migrations");
-
-  // Seed frameworks (idempotent - skips if already seeded)
-  run("node src/seeds/index.js", "Seeding regulatory frameworks");
-
-  // Seed templates (idempotent)
-  run("node src/seeds/templates.js", "Seeding policy & assessment templates");
-
-  // Start the server
+  // Start the server FIRST so Railway healthcheck passes
   console.log("[startup] Starting AISafe API server...");
   require("./index.js");
+
+  // Then run migrations and seeds (server is already accepting requests)
+  setTimeout(() => {
+    console.log("[startup] Running post-start tasks...");
+    run("node migrations/run.js", "Running database migrations");
+    run("node src/seeds/index.js", "Seeding regulatory frameworks");
+    run("node src/seeds/templates.js", "Seeding policy & assessment templates");
+    console.log("[startup] All post-start tasks complete.");
+  }, 2000);
 };
 
 start();
