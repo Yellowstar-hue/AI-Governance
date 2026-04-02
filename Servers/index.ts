@@ -364,6 +364,37 @@ try {
     }
   })();
 
+  // Ensure superadmin exists (in case migration ran without env vars)
+  (async () => {
+    try {
+      const email = process.env.SUPERADMIN_EMAIL;
+      const password = process.env.SUPERADMIN_PASSWORD;
+      if (!email || !password) {
+        console.log("ℹ️  SUPERADMIN_EMAIL/SUPERADMIN_PASSWORD not set, skipping superadmin check");
+        return;
+      }
+      const [results] = await sequelize.query(
+        `SELECT id FROM aisafe.users WHERE role_id = 5 LIMIT 1`
+      );
+      if ((results as any[]).length === 0) {
+        console.log("🔧 No superadmin found — creating one...");
+        const bcrypt = require("bcrypt");
+        const passwordHash = await bcrypt.hash(password, 10);
+        await sequelize.query(
+          `INSERT INTO aisafe.users (name, surname, email, password_hash, role_id, organization_id, created_at, last_login, is_demo)
+           VALUES ('Super', 'Admin', :email, :passwordHash, 5, NULL, NOW(), NOW(), false)
+           ON CONFLICT DO NOTHING`,
+          { replacements: { email, passwordHash } }
+        );
+        console.log(`✅ Superadmin created with email: ${email}`);
+      } else {
+        console.log("✅ Superadmin already exists");
+      }
+    } catch (error) {
+      console.error("Superadmin check failed (non-fatal):", error);
+    }
+  })();
+
   const server = app.listen(port, () => {
     console.log(`Server running on port http://${host}:${port}/`);
   });
