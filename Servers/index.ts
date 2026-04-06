@@ -206,8 +206,35 @@ try {
       checks.ai_gateway = { status: "error", error: err.message };
     }
 
-    const allOk = Object.values(checks).every((c) => c.status === "ok");
-    res.status(allOk ? 200 : 503).json({ status: allOk ? "ok" : "degraded", checks });
+    // Only database is required for health — Redis and AI gateway are optional
+    const dbOk = checks.database?.status === "ok";
+    res.status(dbOk ? 200 : 503).json({ status: dbOk ? "ok" : "degraded", checks });
+  });
+
+  // Debug endpoint — check database state (remove in production later)
+  app.get("/api/debug/db-status", async (_req, res) => {
+    try {
+      const [schemas] = await sequelize.query(`SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'aisafe'`);
+      const [tables] = await sequelize.query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'aisafe' ORDER BY table_name`);
+      const [users] = await sequelize.query(`SELECT id, email, role_id, created_at FROM aisafe.users LIMIT 10`);
+      const [roles] = await sequelize.query(`SELECT * FROM aisafe.roles`);
+      res.json({
+        aisafe_schema_exists: (schemas as any[]).length > 0,
+        tables: (tables as any[]).map((t: any) => t.table_name),
+        table_count: (tables as any[]).length,
+        users,
+        roles,
+        env: {
+          SUPERADMIN_EMAIL: process.env.SUPERADMIN_EMAIL ? "SET" : "NOT SET",
+          SUPERADMIN_PASSWORD: process.env.SUPERADMIN_PASSWORD ? "SET" : "NOT SET",
+          DB_HOST: process.env.DB_HOST ? "SET" : "NOT SET",
+          DB_NAME: process.env.DB_NAME || "NOT SET",
+          NODE_ENV: process.env.NODE_ENV,
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message, stack: error.stack?.split('\n').slice(0, 5) });
+    }
   });
 
   // Routes
@@ -364,35 +391,89 @@ try {
     }
   })();
 
-  // Ensure superadmin exists (in case migration ran without env vars)
+  // Ensure superadmin exists — retry with delay to wait for migrations
   (async () => {
-    try {
-      const email = process.env.SUPERADMIN_EMAIL;
-      const password = process.env.SUPERADMIN_PASSWORD;
-      if (!email || !password) {
-        console.log("ℹ️  SUPERADMIN_EMAIL/SUPERADMIN_PASSWORD not set, skipping superadmin check");
-        return;
-      }
-      const [results] = await sequelize.query(
-        `SELECT id FROM aisafe.users WHERE role_id = 5 LIMIT 1`
-      );
-      if ((results as any[]).length === 0) {
-        console.log("🔧 No superadmin found — creating one...");
+    const email = process.env.SUPERADMIN_EMAIL;
+    const password = process.env.SUPERADMIN_PASSWORD;
+    if (!email || !password) {
+      console.log("SUPERADMIN_EMAIL/SUPERADMIN_PASSWORD not set, skipping superadmin seeding");
+      return;
+    }
+
+    // Wait for migrations to finish (CMD runs migrations before node starts,
+    // but just in case, retry a few times)
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      try {
+        console.log(`[SuperAdmin] Attempt ${attempt}/5 — checking for superadmin...`);
+
+        // Ensure aisafe schema exists
+        await sequelize.query(`CREATE SCHEMA IF NOT EXISTS aisafe;`);
+
+        // Check if users table exists
+        const [tableCheck] = await sequelize.query(
+          `SELECT EXISTS (
+            SELECT FROM information_schema.tables
+            WHERE table_schema = 'aisafe' AND table_name = 'users'
+          ) AS exists`
+        );
+        if (!(tableCheck as any[])[0]?.exists) {
+          console.log(`[SuperAdmin] users table not found yet, waiting... (attempt ${attempt})`);
+          await new Promise(r => setTimeout(r, 5000));
+          continue;
+        }
+
+        // Ensure roles table has SuperAdmin role
+        await sequelize.query(`
+          INSERT INTO aisafe.roles (id, name, description)
+          VALUES (5, 'SuperAdmin', 'System-level administrator with cross-org access.')
+          ON CONFLICT (id) DO NOTHING;
+        `);
+
+        // Make organization_id nullable (in case migration didn't run)
+        try {
+          await sequelize.query(`
+            ALTER TABLE aisafe.users ALTER COLUMN organization_id DROP NOT NULL;
+          `);
+        } catch (_e) { /* already nullable */ }
+
+        // Check if superadmin already exists
+        const [existing] = await sequelize.query(
+          `SELECT id, email FROM aisafe.users WHERE role_id = 5 LIMIT 1`
+        );
+        if ((existing as any[]).length > 0) {
+          const existingEmail = (existing as any[])[0].email;
+          console.log(`[SuperAdmin] Already exists with email: ${existingEmail}`);
+          // Update password if email matches (in case password was wrong)
+          if (existingEmail === email) {
+            const bcrypt = require("bcrypt");
+            const passwordHash = await bcrypt.hash(password, 10);
+            await sequelize.query(
+              `UPDATE aisafe.users SET password_hash = :passwordHash WHERE role_id = 5 AND email = :email`,
+              { replacements: { email, passwordHash } }
+            );
+            console.log(`[SuperAdmin] Password updated for ${email}`);
+          }
+          return;
+        }
+
+        // Create superadmin
         const bcrypt = require("bcrypt");
         const passwordHash = await bcrypt.hash(password, 10);
         await sequelize.query(
           `INSERT INTO aisafe.users (name, surname, email, password_hash, role_id, organization_id, created_at, last_login, is_demo)
-           VALUES ('Super', 'Admin', :email, :passwordHash, 5, NULL, NOW(), NOW(), false)
-           ON CONFLICT DO NOTHING`,
+           VALUES ('Super', 'Admin', :email, :passwordHash, 5, NULL, NOW(), NOW(), false)`,
           { replacements: { email, passwordHash } }
         );
-        console.log(`✅ Superadmin created with email: ${email}`);
-      } else {
-        console.log("✅ Superadmin already exists");
+        console.log(`[SuperAdmin] Created successfully with email: ${email}`);
+        return;
+      } catch (error: any) {
+        console.error(`[SuperAdmin] Attempt ${attempt} failed:`, error.message);
+        if (attempt < 5) {
+          await new Promise(r => setTimeout(r, 5000));
+        }
       }
-    } catch (error) {
-      console.error("Superadmin check failed (non-fatal):", error);
     }
+    console.error("[SuperAdmin] Failed after 5 attempts — login may not work");
   })();
 
   const server = app.listen(port, () => {
